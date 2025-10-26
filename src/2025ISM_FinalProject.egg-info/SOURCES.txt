@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/2025ISM_FinalProject.egg-info/PKG-INFO
+src/2025ISM_FinalProject.egg-info/SOURCES.txt
+src/2025ISM_FinalProject.egg-info/dependency_links.txt
+src/2025ISM_FinalProject.egg-info/requires.txt
+src/2025ISM_FinalProject.egg-info/top_level.txt
+src/ExtractSpec/__init__.py
+src/ExtractSpec/utils.py
+test/test.py

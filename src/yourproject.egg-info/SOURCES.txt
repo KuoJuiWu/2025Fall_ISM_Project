@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/ExtractSpec/__init__.py
+src/ExtractSpec/utils.py
+src/yourproject.egg-info/PKG-INFO
+src/yourproject.egg-info/SOURCES.txt
+src/yourproject.egg-info/dependency_links.txt
+src/yourproject.egg-info/requires.txt
+src/yourproject.egg-info/top_level.txt
+test/test.py
