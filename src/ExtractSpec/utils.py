@@ -304,7 +304,7 @@ def plot_line_spectrum(wave:np.ndarray, header: dict, flux:np.ndarray, xlim:tupl
     if savefig == True:
         fig.savefig(save_name)
 
-def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =5, boxsize:int = 101, exclude:list = None, threshold: float =0.998, offset=0, spike_threshold:float =None):
+def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =3, boxsize:int = 9, exclude:list = None, threshold: float =0.998, offset=0., spike_threshold:float =None):
     '''2025Fall_ISM_Project
     Calculate the continuum of a spectrum using an iterative median filtering method and Savitzky-Golay smoothing.
     Parameters:
@@ -360,16 +360,16 @@ def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =5, boxsize:int = 101, 
         anchor = valid & (smooth > cont * float(threshold))
 
         # If too few anchors, relax once; if still too few, fall back to smooth
-        if anchor.sum() < 2:
-            anchor = valid & (smooth > cont * 0.995)
-        if anchor.sum() < 2:
-            cont = smooth
-            break
+        #if anchor.sum() < 2:
+        #    anchor = valid & (smooth > cont * 0.99)
+        #if anchor.sum() < 2:
+        #    cont = smooth
+        #    break
 
         cont = np.interp(wave, wave[anchor], cont[anchor])
 
     # The following makes sure that the window is large enough but not larger than the total length
-    sg_window = min(boxsize*3 if  boxsize% 2 else (boxsize+1)*3, max(boxsize*3, len(flux_tmp) - (1 - len(flux_tmp) % 2)))
+    sg_window = min(boxsize if  boxsize% 2 else (boxsize+1), max(boxsize*3, len(flux_tmp) - (1 - len(flux_tmp) % 2)))
     if sg_window >= 10 and sg_window <= len(flux_tmp):
         # 10 is just a number to limit the lower bound
         cont = savgol_filter(cont, sg_window, polyorder=1,mode='interp')
@@ -379,7 +379,7 @@ def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =5, boxsize:int = 101, 
     
     return cont
 
-def generate_line_cont(data:np.ndarray, wave:np.ndarray):
+def generate_line_cont(data:np.ndarray, wave:np.ndarray, boxsize:int = 9,  exclude=[(1.432, 1.476), (1.869, 1.884)]):
     '''
     Generate continuum and line emission data cubes from the input data cube.
     Parameters:
@@ -388,6 +388,8 @@ def generate_line_cont(data:np.ndarray, wave:np.ndarray):
         The input data cube with shape (wavelength, y, x)
     wave : 1D array
         The wavelength array corresponding to the first dimension of the data cube
+    boxsize : int, optional
+        Size of the median filter box for continuum calculation
     Returns:
     -----------
     cont_spaxel : 3D array
@@ -405,7 +407,7 @@ def generate_line_cont(data:np.ndarray, wave:np.ndarray):
             if np.all(check == 0):
                 continue
             #print('post: ',check)
-            cont_spaxel[:,j,i] = calc_cont(wave, data[:,j,i], boxsize =101, exclude=[(1.432, 1.476)])
+            cont_spaxel[:,j,i] = calc_cont(wave, data[:,j,i], boxsize = boxsize, exclude= exclude)
             line_spaxel[:,j,i] = data[:,j,i] - cont_spaxel[:,j,i]
     
     return cont_spaxel, line_spaxel
