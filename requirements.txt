@@ -1,0 +1,8 @@
+astropy
+matplotlib
+numpy
+scipy
+jupyter
+pytest
+tqdm
+bettermoments

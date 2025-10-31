@@ -1,0 +1,80 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code and other IDE settings
+.vscode/
+.idea/
+*.swp
+
+# Logs and caches
+*.log
+*.out
+*.err
+*.tmp
+.cache/
+pytest_cache/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+MANIFEST
+
+# Data and output (keep structure but ignore large data)
+data/*
+!data/.gitkeep
+
+# Simulation or model output
+outputs/
+results/
+figures/
+*.fits
+*.csv
+*.dat
+*.npy
+*.npz
+
+# Reports or temporary notebooks
+notebooks/.ipynb_checkpoints/
+notebooks/temp_*.ipynb
+notebooks/*_draft.ipynb
+
+# Test artifacts
+.coverage
+htmlcov/
+
+# VS Code workspace history
+.history/
+
+# Ignore ZIPs or archives
+*.zip
+*.tar
+*.gz
+
+# Ignore user-specific configuration
+*.ini
+*.cfg
+*.toml
+!pyproject.toml
