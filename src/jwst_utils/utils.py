@@ -1,5 +1,5 @@
 import numpy as np
-
+import os
 from astropy.io import fits
 from astropy.visualization import LogStretch, AsinhStretch, ImageNormalize, ManualInterval, make_lupton_rgb
 
@@ -41,7 +41,8 @@ def read_fits(filename: str):
     return data, header ,err
 
 # define a function to create a dictionary to store data
-def create_data_dict(fitls: list, name:list | None = None, check_header:bool = False, check_file_header:dict | None = None):
+def create_data_dict(fitls: list, name:list | None = None, check_header:bool = False, 
+                     data_dir:str|None = None, check_file_header:dict | None = None):
 
     '''
     Create a dictionary to store data from FITS files.
@@ -53,6 +54,8 @@ def create_data_dict(fitls: list, name:list | None = None, check_header:bool = F
         List of source names corresponding to the FITS files
     check_header : bool, optional
         If True, print the header of FITS file for verification
+    data_dir : str, optional
+        The directory where the FITS files are located
     check_file_header : str, optional
         The FITS file name to check the header if check_header is True
     
@@ -65,19 +68,18 @@ def create_data_dict(fitls: list, name:list | None = None, check_header:bool = F
 
     # Whether to check the header of a specific FITS file
     if (check_header is True):
+
         
         # Check the header of the specified FITS file
         if (check_file_header is None):
             print("Error: Please specify the FITS file name to check the header.")
             return None
-        
-        # Check whether the specified FITS file is in the fitls list
-        if (check_file_header not in fitls):
-            print(f"Error: The specified FITS file '{check_file_header}' is not in the provided fitls list.")
-            return None
+
         
         # Read and print the header of the specified FITS file
         if (check_file_header is not None):
+            if data_dir is not None:
+                check_file_header = os.path.join(data_dir, check_file_header)
             data, header, err = read_fits(check_file_header)
             print(repr(header))
     else:
@@ -92,18 +94,25 @@ def create_data_dict(fitls: list, name:list | None = None, check_header:bool = F
             return None
         
         for i, file in enumerate(fitls):
+
+            # The following two lines make sure that file variable only contains the file name instead of the full path
+            file_path = os.path.join(data_dir, file) if data_dir is not None else file
+
             source = name + '.' + file.split('.')[-1]
-            data, header, err = read_fits(file)
+            data, header, err = read_fits(file_path)
             data_dict['%s' %source] = {'header': header, 'data': data, 'error': err}
     else:
         for i, file in enumerate(fitls):
+
+            file_path = os.path.join(data_dir, file) if data_dir is not None else file
             name = file.split('-')[0] # this is only useful for TMC1A JWST files
             suffix = file.split('.')[0][-3:]
             #print(name+'.'+suffix)
             source = name + '.' +suffix
-            data, header, err = read_fits(file)
+            data, header, err = read_fits(file_path)
             data_dict['%s' %source] = {'header': header, 'data': data, 'error': err}
     print('data_dict keys:', data_dict.keys())
+    
     return data_dict
 
 def optical_veocity(wave: np.ndarray, header:dict, restwave: float = 1.644, c:float = 3.e5):
@@ -508,3 +517,8 @@ def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarra
         plt.show()
         if savefig == True:
             fig.savefig('Comparison_line_cont_allspec.png')
+
+
+def add_numbers(a, b):
+    """Simple example function."""
+    return a + b
