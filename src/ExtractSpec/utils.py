@@ -3,7 +3,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.visualization import LogStretch, AsinhStretch, ImageNormalize, ManualInterval, make_lupton_rgb
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colorbar import Colorbar
@@ -13,6 +13,12 @@ from tqdm import tqdm
 
 from scipy.signal import medfilt,savgol_filter, find_peaks
 import copy
+
+import os, sys
+from pathlib import Path
+# Testing automatically find data file
+from pathlib import Path
+from ExtractSpec.paths import DATA_DIR, RESULTS_DIR
 
 # define a function read fits file
 def read_fits(filename: str):
@@ -127,11 +133,12 @@ def optical_veocity(wave: np.ndarray, header:dict, restwave: float = 1.644, c:fl
     '''
 
     v_barycorr = header['VELOSYS']
-    vopt = (wave - restwave)/restwave * c + v_barycorr/1000
+    vopt = (wave - restwave)/restwave * c - v_barycorr/1000
     return vopt
 
-# define a function to plot an image
-def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: float = 1e-2, text:str = '-70km/s', savefig = False, save_name:str = 'overview.png') -> None:
+
+def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: float = 1e-2, text:str = '-70km/s', 
+               add_patch: tuple| list | None = None, savefig = False, save_name:str = 'overview.png') -> None:
     
     '''
     Plot an image with given data and header on the provided axis.
@@ -149,6 +156,8 @@ def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: floa
         Parameter for AsinhStretch
     text : str, optional
         Text (the velocity or channel) to display on the image
+    add_patch: tuple or list, optional
+        Indicate which spaxel you are going to use for showing the sectrum.
     savefig : bool, optional
         If True, save the figure
     save_name : str, optional
@@ -185,11 +194,27 @@ def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: floa
     ax1.set_ylabel(r'$\Delta \delta$'+' [arcsec]',fontsize = 15)
     ax1.text(0.05,0.95, s = text, transform = ax1.transAxes, fontsize = 15)
     cbar.set_title(r'$I_\nu$'+' [MJy/Sr]',fontsize = 25)
-    plt.show()
+
+    if isinstance(add_patch, list):
+        print('plotting crosses (list)')
+        for i in add_patch:
+            x, y = i[0], i[1]
+            ax1.scatter(x, y, marker='x', s=30, color='blue', linewidths=5)
+
+    elif isinstance(add_patch, tuple):
+        print('plotting single cross (tuple)')
+        x, y = add_patch[0], add_patch[1]
+        ax1.scatter(x, y, marker='x', s=30, color='blue', linewidths=5)
+
+    else:
+        print('No valid patch input, skipping...')
+        plt.show()
 
     if savefig == True:
+        os.chdir(RESULTS_DIR)
         fig.savefig(save_name)
-    
+        os.chdir(DATA_DIR)
+
 def calc_spec(data:np.ndarray, header:dict):
     ''' 
     Calculate the flux in each channel without continuum subtraction by masking out the Nan value.
@@ -234,10 +259,13 @@ def calc_spec(data:np.ndarray, header:dict):
 
     return wave, flux
 
-def plot_line_spectrum(wave:np.ndarray, header: dict, flux:np.ndarray, xlim:tuple, ylim:tuple, text:tuple = ('1.644', 'FeII'), restwave:float = 1.644, plot_all_spec:bool = False, savefig:bool = False, save_name:str = 'FeII1644_spectrum.png') -> None:
+def plot_line_spectrum(wave:np.ndarray, header: dict, flux:np.ndarray, xlim:tuple, ylim:tuple, 
+                       text:tuple | None = ('1.644', 'FeII'), restwave:float = 1.644, exclude:list | None = None,
+                       plot_all_spec:bool = False, savefig:bool = False, save_name:str = 'FeII1644_spectrum.png') -> None:
     
     '''
     Plot the specific emmission line's spectrum or all spectrum. Remember to specify the rest wavelength in the optical_velocity function.
+    If the spectrum is not continue, please specific the exclude region
 
     Parameters:
     -----------
@@ -253,6 +281,11 @@ def plot_line_spectrum(wave:np.ndarray, header: dict, flux:np.ndarray, xlim:tupl
         y-axis limits for the line spectrum plot
     text : tuple, optional
         Text (wavelength and line name) to display on the plot title
+    restwave : float
+        The center wavelength to show in the line profile. 
+    exclude : list, optional
+        If it is not None, the wavelength will exclude the region in the list.
+        Please set it in a list of tuples.
     plot_all_spec : bool, optional
         If True, plot the full spectrum in wavelength space
     savefig : bool, optional
@@ -273,6 +306,12 @@ def plot_line_spectrum(wave:np.ndarray, header: dict, flux:np.ndarray, xlim:tupl
     
     # Plot the full spectrum in wavelength space
     if plot_all_spec == True:
+        
+        if exclude is not None:
+            # if exclude is a list including multiple regions
+            for i in exclude:
+                wave[(wave > i[0]) & (wave < i[1])] = np.nan
+                flux[(wave > i[0]) & (wave < i[1])] = np.nan
         
         fig = plt.figure(figsize = (9,5))
         plt.step(wave, np.array(flux), where = 'mid')
@@ -459,7 +498,7 @@ def calc_contsubtract_spec(line_spaxel: np.ndarray, cont_spaxel: np.ndarray, hea
     return cont, flux_line
 
 # Plot the comparison between line and continuum emissions
-def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarray, flux_line:np.ndarray, cont: np.ndarray, plot_all_spec = False, savefig = False, save_name = 'Comparison_line_cont.png') -> None:
+def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarray, flux_line:np.ndarray, cont: np.ndarray, plot_all_spec = False, savefig = False, specify_region: bool = False, save_name = 'Comparison_line_cont.png') -> None:
     '''
     Plot the comparison between line and continuum emissions in both velocity and wavelength space.
     Parameters:
@@ -488,8 +527,8 @@ def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarra
     plt.ylabel(r'$F_\lambda$'+' [Jy]', fontsize = 15)
     plt.title('Comparison between line and continuum emissions', fontsize = 15)
     plt.legend()
+    
     plt.show()
-
     if savefig == True:
         fig.savefig(save_name)
     
