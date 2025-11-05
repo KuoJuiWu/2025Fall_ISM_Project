@@ -357,7 +357,7 @@ def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =3, boxsize:int = 9, ex
     boxsize : int, optional
         Size of the median filter box
     exclude : list of tuples, optional
-        List of wavelength ranges to exclude from fitting (e.g., [(start1, end1), (start2, end2)])
+        List of wavelength ranges to exclude from fitting (e.g., [(start1, end1), (start2, end2)]). Unit in um.
     threshold : float, optional
         Threshold for setting the anchor points
     offset : float, optional
@@ -401,9 +401,9 @@ def calc_cont(wave:np.ndarray,flux:np.ndarray, niter:int =3, boxsize:int = 9, ex
         # If too few anchors, relax once; if still too few, fall back to smooth
         #if anchor.sum() < 2:
         #    anchor = valid & (smooth > cont * 0.99)
-        #if anchor.sum() < 2:
-        #    cont = smooth
-        #    break
+        if anchor.sum() < 2:
+            cont = smooth
+            break
 
         cont = np.interp(wave, wave[anchor], cont[anchor])
 
@@ -481,7 +481,7 @@ def calc_contsubtract_spec(line_spaxel: np.ndarray, cont_spaxel: np.ndarray, hea
     cont = []
 
     # mask out the Nan value in each channel of data
-    for i in tqdm(range(len(line_spaxel)), desc="Calculating spectrum flux with continuum subtraction"):
+    for i in tqdm(range(len(line_spaxel)), desc= "Calculating spectrum flux with continuum subtraction"):
         mask_valid = ~np.isnan(line_spaxel)
         cont_mask_valid = ~np.isnan(cont_spaxel)
         masked_slice = np.where(mask_valid[i], line_spaxel[i], 0.0)
@@ -498,7 +498,7 @@ def calc_contsubtract_spec(line_spaxel: np.ndarray, cont_spaxel: np.ndarray, hea
     return cont, flux_line
 
 # Plot the comparison between line and continuum emissions
-def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarray, flux_line:np.ndarray, cont: np.ndarray, plot_all_spec = False, savefig = False, specify_region: bool = False, save_name = 'Comparison_line_cont.png') -> None:
+def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarray, flux_line:np.ndarray, cont: np.ndarray, plot_all_spec = False, xlim: tuple | None = None, ylim: tuple | None = None, savefig = False, save_name = 'Comparison_line_cont.png') -> None:
     '''
     Plot the comparison between line and continuum emissions in both velocity and wavelength space.
     Parameters:
@@ -513,16 +513,23 @@ def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarra
         Continuum-subtracted flux array
     cont : 1D array
         Continuum flux array
+    xlim: tuple or None
+        x axis limiter
+    ylim: tuple or None
+        y axis limiter
+    
     Returns:
     -----------
     None. Show the plots.
     '''
+    xmax, xmin = xlim[0], xlim[1]
+    ymax, ymin = ylim[0], ylim[1]
     fig = plt.figure(figsize = (9,5))
     plt.step(v, np.array(flux), where = 'mid', label = 'spectrum')
     plt.step(v, np.array(flux_line), where = 'mid', label = 'continuum-subtracted')
     plt.plot(v, np.array(cont), label = 'continuum')
-    plt.xlim(-1000,800) # adjust velocity limits as needed
-    plt.ylim(0,1.2e-2)
+    plt.xlim(xmin, xmax) # adjust velocity limits as needed
+    plt.ylim(ymin, ymax)
     plt.xlabel('velocity ' + r'$[km/s]$', fontsize = 15)
     plt.ylabel(r'$F_\lambda$'+' [Jy]', fontsize = 15)
     plt.title('Comparison between line and continuum emissions', fontsize = 15)
@@ -547,3 +554,78 @@ def plot_comparison_line_continuum(v:np.ndarray, wave:np.ndarray, flux:np.ndarra
         plt.show()
         if savefig == True:
             fig.savefig('Comparison_line_cont_allspec.png')
+
+# plot the bettermoments map
+def plot_M1_image(data: np.ndarray, header: dict, vmin: float, vmax: float, text:str | None = None, 
+               add_patch: tuple| list | None = None, savefig = False, save_name:str = 'overview.png') -> None:
+    
+    '''
+    Plot an image with given data and header on the provided axis.
+    Parameters:
+    -----------
+    data : 2D array
+        The image data to plot
+    header : astropy.io.fits.Header
+        The header containing WCS information
+    vmin : float
+        Minimum value for color scaling
+    vmax : float
+        Maximum value for color scaling
+    text : str, optional
+        Text (the velocity or channel) to display on the image
+    add_patch: tuple or list, optional
+        Indicate which spaxel you are going to use for showing the sectrum.
+    savefig : bool, optional
+        If True, save the figure
+    save_name : str, optional
+        The name of the file to save the figure as if savefig is True.
+    Returns:
+    -----------
+    cbar1 : matplotlib.colorbar.Colorbar
+        The colorbar associated with the image
+    '''
+
+    fig = plt.figure(figsize = (8,10))
+
+    widths = [0.05,1]
+    heights = [0.05,1]
+    gs = fig.add_gridspec(2, 2, width_ratios=widths,height_ratios=heights)
+    gs.update(left=0.05, right=0.95, bottom=0.08, top=0.85, wspace=0.02, hspace=0.02)
+    
+    pixel = header['CDELT2']*3600  # arcsec/pixel
+    ax1 = fig.add_subplot(gs[1,1])
+    divider1 = make_axes_locatable(ax1)
+    cbar = divider1.append_axes("top", size="5%", pad=0.1)
+
+    # Change the ticks to arcsec
+    def axis_transfer(pos,val):
+        return f'{pos*pixel:.2f}'
+    
+    ax1.imshow(data, origin='lower', cmap='inferno')
+    
+    ax1.xaxis.set_major_formatter(FuncFormatter(axis_transfer))
+    ax1.yaxis.set_major_formatter(FuncFormatter(axis_transfer))
+    ax1.set_xlabel(r'$\Delta \alpha$' +' [arcsec]', fontsize = 15)
+    ax1.set_ylabel(r'$\Delta \delta$'+' [arcsec]',fontsize = 15)
+    ax1.text(0.05,0.95, s = text, transform = ax1.transAxes, fontsize = 15)
+    cbar.set_title(r'$V$'+' [km/s]',fontsize = 25)
+
+    if isinstance(add_patch, list):
+        print('plotting crosses (list)')
+        for i in add_patch:
+            x, y = i[0], i[1]
+            ax1.scatter(x, y, marker='x', s=30, color='blue', linewidths=5)
+
+    elif isinstance(add_patch, tuple):
+        print('plotting single cross (tuple)')
+        x, y = add_patch[0], add_patch[1]
+        ax1.scatter(x, y, marker='x', s=30, color='blue', linewidths=5)
+
+    else:
+        print('No valid patch input, skipping...')
+        plt.show()
+
+    if savefig == True:
+        os.chdir(RESULTS_DIR)
+        fig.savefig(save_name)
+        os.chdir(DATA_DIR)
