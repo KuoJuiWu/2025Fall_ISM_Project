@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Iterable, Optional
 
-PKG = "ExtractSpec"                   # just for the env var name
+PKG = "ExtractSpec"               # just for the env var name
 ENVVAR = f"{PKG.upper()}_DATA"    # ISM2025_DATA
 
 # --- Discovery helpers --------------------------------------------------------
@@ -45,16 +45,16 @@ def get_data_dir(start: Optional[Path] = None) -> Path:
     candidates = [
         root / "user_data",
         root / "data",
-        root.parent / "data",   # e.g., repo and data are siblings
+        root.parent.parent / "data",   # e.g., repo and data are siblings # because I put my repo under backup file so need two parent
     ]
     chosen = first_existing(candidates)
     if chosen:
         return chosen.resolve()
 
     # 5) Final fallback
-    fallback = Path.home() / "data"
-    fallback.mkdir(parents=True, exist_ok=True)
-    return fallback.resolve()
+    #fallback = Path.home() / "data"
+    #fallback.mkdir(parents=True, exist_ok=True)
+    #return fallback.resolve()
 
 def get_results_dir(start: Optional[Path] = None) -> Path:
     root = project_root(start)
