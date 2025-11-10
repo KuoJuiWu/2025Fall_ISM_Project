@@ -38,13 +38,19 @@ def read_fits(filename: str):
     err : astropy.io.fits.FITS_rec
         The error data from the FITS file
     '''
-
     hdul = fits.open(filename)
-    data = hdul[1].data
-    header = hdul[1].header
-    err = hdul[2].data
-    hdul.close()
-    return data, header ,err
+    if len(hdul) == 1:
+        data = hdul[0].data
+        header = hdul[0].header
+        hdul.close()
+        return data, header
+    else:
+        print(len(hdul))
+        data = hdul[1].data
+        header = hdul[1].header
+        err = hdul[2].data
+        hdul.close()
+        return data, header ,err
 
 # define a function to create a dictionary to store data
 def create_data_dict(fitls: list, name:list | None = None, check_header:bool = False, check_file_header:dict | None = None):
@@ -84,8 +90,12 @@ def create_data_dict(fitls: list, name:list | None = None, check_header:bool = F
         
         # Read and print the header of the specified FITS file
         if (check_file_header is not None):
-            data, header, err = read_fits(check_file_header)
-            print(repr(header))
+            if len(read_fits(check_file_header)) == 3:
+                data, header, err = read_fits(check_file_header)
+                print(repr(header))
+            else:
+                data, header = read_fits(check_file_header)
+                print(repr(header))    
     else:
         pass
 
@@ -103,12 +113,14 @@ def create_data_dict(fitls: list, name:list | None = None, check_header:bool = F
             data_dict['%s' %source] = {'header': header, 'data': data, 'error': err}
     else:
         for i, file in enumerate(fitls):
-            name = file.split('-')[0] # this is only useful for TMC1A JWST files
-            suffix = file.split('.')[0][-3:]
+            name = file.split('.fits')[0] # this is only useful for TMC1A JWST files
             #print(name+'.'+suffix)
-            source = name + '.' +suffix
-            data, header, err = read_fits(file)
-            data_dict['%s' %source] = {'header': header, 'data': data, 'error': err}
+            if len(read_fits(file)) == 3:
+                data, header, err = read_fits(file)
+                data_dict['%s' %name] = {'header': header, 'data': data, 'error': err}
+            else:
+                data, header = read_fits(file)
+                data_dict['%s' %name] = {'header': header, 'data': data}
     print('data_dict keys:', data_dict.keys())
     return data_dict
 
@@ -138,7 +150,7 @@ def optical_veocity(wave: np.ndarray, header:dict, restwave: float = 1.644, c:fl
 
 
 def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: float = 1e-2, text:str = '-70km/s', 
-               add_patch: tuple| list | None = None, savefig = False, save_name:str = 'overview.png') -> None:
+               add_patch: tuple| list | None = None, telescope: str = 'JWST', savefig = False, save_name:str = 'overview.png') -> None:
     
     '''
     Plot an image with given data and header on the provided axis.
@@ -158,6 +170,8 @@ def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: floa
         Text (the velocity or channel) to display on the image
     add_patch: tuple or list, optional
         Indicate which spaxel you are going to use for showing the sectrum.
+    telescope: str, optional
+        Decide the unit of the image based on different telescope
     savefig : bool, optional
         If True, save the figure
     save_name : str, optional
@@ -188,12 +202,16 @@ def plot_image(data: np.ndarray, header: dict, vmin: float, vmax: float, a: floa
     plt1 = ax1.imshow(data, origin='lower', norm = norm1, cmap='inferno')
     cb1 = Colorbar(ax = cbar, mappable = plt1, orientation = 'horizontal', ticklocation = 'top')
     
-    ax1.xaxis.set_major_formatter(FuncFormatter(axis_transfer))
-    ax1.yaxis.set_major_formatter(FuncFormatter(axis_transfer))
+    #ax1.xaxis.set_major_formatter(FuncFormatter(axis_transfer))
+    #ax1.yaxis.set_major_formatter(FuncFormatter(axis_transfer))
     ax1.set_xlabel(r'$\Delta \alpha$' +' [arcsec]', fontsize = 15)
     ax1.set_ylabel(r'$\Delta \delta$'+' [arcsec]',fontsize = 15)
     ax1.text(0.05,0.95, s = text, transform = ax1.transAxes, fontsize = 15)
-    cbar.set_title(r'$I_\nu$'+' [MJy/Sr]',fontsize = 25)
+    if telescope == 'ALMA':
+        I_unit = ' mJy/beam'
+    elif telescope == 'JWST':
+        I_unit = ' [MJy/Sr]'
+    cbar.set_title(r'$I_\nu$'+ I_unit,fontsize = 25)
 
     if isinstance(add_patch, list):
         print('plotting crosses (list)')
